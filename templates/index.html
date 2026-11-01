@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>לוח משימות</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f1f5f9; margin: 0; padding: 2rem; }
+        h1 { text-align: center; color: #1e293b; }
+        form { display: flex; gap: .5rem; justify-content: center; margin-bottom: 2rem; }
+        input { padding: .6rem; width: 300px; border: 1px solid #cbd5e1; border-radius: 6px; }
+        button { padding: .5rem 1rem; border: none; border-radius: 6px; cursor: pointer; }
+        .add-btn { background: #4f46e5; color: #fff; }
+        .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+        .column { background: #e2e8f0; border-radius: 10px; padding: 1rem; min-height: 300px; }
+        .column h2 { margin-top: 0; font-size: 1.2rem; color: #334155; }
+        .task { background: #fff; border-radius: 8px; padding: .75rem; margin-bottom: .5rem;
+                box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+        .task-actions { display: flex; gap: .3rem; margin-top: .5rem; }
+        .task-actions button { font-size: .8rem; padding: .3rem .6rem; background: #e0e7ff; }
+        .task-actions .delete { background: #fee2e2; }
+    </style>
+</head>
+<body>
+    <h1>📋 לוח משימות</h1>
+
+    <form id="add-form">
+        <input id="title" placeholder="משימה חדשה, למשל: חזרה על מסכת ברכות" required>
+        <button type="submit" class="add-btn">הוספה</button>
+    </form>
+
+    <div class="board">
+        <div class="column"><h2>לביצוע</h2><div id="todo"></div></div>
+        <div class="column"><h2>בתהליך</h2><div id="in_progress"></div></div>
+        <div class="column"><h2>הושלם</h2><div id="done"></div></div>
+    </div>
+
+    <script>
+        const STATUSES = ["todo", "in_progress", "done"];
+        const LABELS = { todo: "לביצוע", in_progress: "בתהליך", done: "הושלם" };
+
+        async function loadTasks() {
+            const response = await fetch("/api/tasks");
+            const tasks = await response.json();
+            STATUSES.forEach(status => document.getElementById(status).innerHTML = "");
+            tasks.forEach(renderTask);
+        }
+
+        function renderTask(task) {
+            const card = document.createElement("div");
+            card.className = "task";
+
+            const title = document.createElement("div");
+            title.textContent = task.title;  // textContent prevents HTML injection
+            card.appendChild(title);
+
+            const actions = document.createElement("div");
+            actions.className = "task-actions";
+            STATUSES.filter(status => status !== task.status).forEach(status => {
+                const moveBtn = document.createElement("button");
+                moveBtn.textContent = "← " + LABELS[status];
+                moveBtn.onclick = () => updateStatus(task.id, status);
+                actions.appendChild(moveBtn);
+            });
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "delete";
+            deleteBtn.textContent = "מחיקה";
+            deleteBtn.onclick = () => deleteTask(task.id);
+            actions.appendChild(deleteBtn);
+
+            card.appendChild(actions);
+            document.getElementById(task.status).appendChild(card);
+        }
+
+        async function updateStatus(id, status) {
+            await fetch(`/api/tasks/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status })
+            });
+            loadTasks();
+        }
+
+        async function deleteTask(id) {
+            await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+            loadTasks();
+        }
+
+        document.getElementById("add-form").addEventListener("submit", async event => {
+            event.preventDefault();
+            const input = document.getElementById("title");
+            await fetch("/api/tasks", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ title: input.value })
+            });
+            input.value = "";
+            loadTasks();
+        });
+
+        loadTasks();
+    </script>
+</body>
+</html>
