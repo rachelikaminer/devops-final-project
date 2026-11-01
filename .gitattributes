@@ -1,0 +1,3 @@
+# Store and check out text files with Linux line endings (LF),
+# so they behave the same on Windows, in Docker and on the VM
+* text=auto eol=lf
