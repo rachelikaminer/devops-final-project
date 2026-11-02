@@ -6,6 +6,8 @@ on:
 
 env:
   REGION: us-central1
+  ZONE: us-central1-a
+  VM_NAME: kanban-vm
   IMAGE: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/kanban-repo/kanban-app
 
 jobs:
@@ -49,3 +51,44 @@ jobs:
         run: |
           docker push "$IMAGE:${{ github.sha }}"
           docker push "$IMAGE:latest"
+
+  cd:
+    name: CD - deploy to VM
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to VM over SSH
+        run: |
+          gcloud compute ssh "$VM_NAME" \
+            --project "${{ secrets.GCP_PROJECT_ID }}" \
+            --zone "$ZONE" \
+            --quiet \
+            --strict-host-key-checking=no \
+            --command "
+              set -e
+              sudo docker pull $IMAGE:${{ github.sha }}
+              sudo docker rm -f kanban || true
+              sudo docker run -d --name kanban --restart unless-stopped \
+                -p 127.0.0.1:5000:5000 \
+                -v /opt/kanban/database:/app/database \
+                $IMAGE:${{ github.sha }}
+              for i in 1 2 3 4 5 6 7 8 9 10; do
+                curl -fsS http://127.0.0.1:5000/health && exit 0
+                sleep 3
+              done
+              echo 'App did not become healthy'; sudo docker logs kanban; exit 1
+            "
