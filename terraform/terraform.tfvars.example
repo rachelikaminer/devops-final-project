@@ -1,0 +1,3 @@
+# Copy this file to terraform.tfvars and fill in your values (terraform.tfvars is not committed to Git)
+project_id  = "your-gcp-project-id"
+github_repo = "rachelikaminer/devops-final-project"
