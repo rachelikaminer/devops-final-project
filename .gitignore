@@ -13,6 +13,9 @@ database/
 *.tfstate.*
 *.tfvars
 
+# Local machine certificates (NetFree) - used only for local Docker builds
+certs/
+
 # Secrets
 *.json.key
 *-key.json

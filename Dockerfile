@@ -6,7 +6,16 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+# Optional extra CA certificate (e.g. a filtering proxy such as NetFree) - passed only on local builds:
+#   docker build --secret id=extra_ca,src=certs/netfree-ca.pem ...
+# It is a build secret, so it never ends up in the image; CI builds simply skip it.
+RUN --mount=type=secret,id=extra_ca \
+    if [ -f /run/secrets/extra_ca ]; then \
+        cat "$(python -c 'import pip._vendor.certifi as c; print(c.where())')" /run/secrets/extra_ca > /tmp/ca-bundle.pem && \
+        export PIP_CERT=/tmp/ca-bundle.pem; \
+    fi && \
+    pip install --no-cache-dir -r requirements.txt
 
 
 # ---------- Stage 2: runner - only what is needed to run the app ----------
