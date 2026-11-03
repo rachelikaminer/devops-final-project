@@ -1,0 +1,25 @@
+# Local development: run backend + frontend together
+services:
+  backend:
+    build:
+      context: ./backend
+      secrets:
+        - extra_ca
+    volumes:
+      - backend-data:/app/database
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      BACKEND_URL: http://backend:5000
+    depends_on:
+      - backend
+
+volumes:
+  backend-data:
+
+secrets:
+  extra_ca:
+    file: ../certs/netfree-ca.pem
